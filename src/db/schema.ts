@@ -18,8 +18,9 @@ export const createSchema = async ()=>{
     CREATE TABLE IF NOT EXISTS issues(
         id SERIAL PRIMARY KEY,
         title VARCHAR (150) NOT NULL,
-        description TEXT NOT NULL CHECK (LENGTH(description) >= 10),
+        description TEXT NOT NULL,
         type VARCHAR (20) NOT NULL,
+        status VARCHAR (20) NOT NULL DEFAULT 'open',
         reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()

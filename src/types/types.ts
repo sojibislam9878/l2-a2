@@ -12,3 +12,9 @@ export interface IResUser{
     created_at:string,
     updated_at:string
 }
+
+export type TCreateIssue = {
+  title: string;
+  description: string;
+  type: string;
+};

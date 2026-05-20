@@ -5,3 +5,8 @@ export const signTokes = (payloads: any)=>{
 
  return {token}
 }
+
+export const decodeToken = (payload : string)=>{
+    const decoded = jwt.verify(payload, envConfig.access_token as string);
+    return decoded
+}
