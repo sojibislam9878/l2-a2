@@ -1,7 +1,7 @@
 import { sql } from "../../db";
 import type { IResUser, TCreateIssue, Tquery } from "../../types/types";
 import { decodeToken } from "../../utils/jwt";
-import type { IIssueWithReporter } from "./issue.interfes";
+import type { IIssueWithReporter, IResIssue } from "./issue.interfes";
 
 const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
   const decode = decodeToken(authorization) as IResUser;
@@ -91,8 +91,49 @@ const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
 
   return issue[0] as IIssueWithReporter
 }
+
+const updateIssueDB = async (authorization: string, id: string, payload: {title: string, description:string, type: string})=>{
+  const {title, description, type} = payload;
+  if (!authorization) {
+    throw new Error("Unauthorized")
+  }
+  const decode = decodeToken(authorization) as IResUser;
+  const userData = await sql`
+    SELECT * FROM users WHERE email = ${decode.email} 
+    `;
+  const issueData = await sql`
+    SELECT * FROM issues WHERE id = ${id} 
+    `;
+
+  const user = userData[0];
+  const issue = issueData[0];
+
+  if (!user) {
+    throw new Error("User not exsist");
+  }
+  if (!issue) {
+    throw new Error("issue not fount");
+  }
+  if (user.role !== "maintainer" && (issue.reporter_id !== user.id || issue.status !== "open") ) {
+    throw new Error("You don't have update access");
+  }
+  
+  const result= await sql`
+  UPDATE issues
+  SET 
+  title = COALESCE(${title}, title),
+  description = COALESCE(${description}, description),
+  type = COALESCE(${type}, type),
+  updated_at = NOW()
+  WHERE id = ${id}
+  RETURNING *
+  `
+  return result[0] as IResIssue
+
+}
 export const issueService = {
   createIssueDB,
   getAllIssuesDB,
-  getIssueDB
+  getIssueDB,
+  updateIssueDB
 };
