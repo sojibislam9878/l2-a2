@@ -92,12 +92,12 @@ const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
   return issue[0] as IIssueWithReporter
 }
 
-const updateIssueDB = async (authorization: string, id: string, payload: {title: string, description:string, type: string})=>{
+const updateIssueDB = async (token: string, id: string, payload: {title: string, description:string, type: string})=>{
   const {title, description, type} = payload;
-  if (!authorization) {
+  if (!token) {
     throw new Error("Unauthorized")
   }
-  const decode = decodeToken(authorization) as IResUser;
+  const decode = decodeToken(token) as IResUser;
   const userData = await sql`
     SELECT * FROM users WHERE email = ${decode.email} 
     `;

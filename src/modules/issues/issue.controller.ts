@@ -98,11 +98,11 @@ const getIssue = async (req: Request, res: Response) => {
 
 const updateIssue = async (req: Request, res: Response) => {
   try {
-    const authorization = req.headers.authorization;
+    const token = req.headers.authorization;
     const {id} = req.params;
     const payload = req.body;
 
-    const result = await issueService.updateIssueDB(authorization as string , id as string, payload as { title: string, description: string; type: string;} );
+    const result = await issueService.updateIssueDB(token as string , id as string, payload as { title: string, description: string; type: string;} );
     sendResponse( res,{message: "Issue updated successfully",data: result},200);
 
   } catch (error) {
