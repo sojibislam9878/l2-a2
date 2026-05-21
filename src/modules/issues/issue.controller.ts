@@ -6,6 +6,7 @@ import type { IResIssue } from "./issue.interfes";
 const createIssue = async (req: Request, res: Response) => {
   try {
     const authorization = req.headers.authorization;
+
     if (!authorization) {
       sendResponse(
         res,
@@ -18,33 +19,7 @@ const createIssue = async (req: Request, res: Response) => {
       return;
     }
 
-    const result = (await issueService.createIssueDB(
-      req.body,
-      authorization,
-    )) as IResIssue[];
-    if (!result[0]) {
-      return;
-    }
-    const {
-      id,
-      title,
-      description,
-      type,
-      status,
-      reporter_id,
-      created_at,
-      updated_at,
-    } = result[0];
-    const issue = {
-      id,
-      title,
-      description,
-      type,
-      status,
-      reporter_id,
-      created_at,
-      updated_at,
-    };
+    const issue = await issueService.createIssueDB(req.body, authorization);
 
     sendResponse(
       res,
@@ -71,6 +46,36 @@ const createIssue = async (req: Request, res: Response) => {
   }
 };
 
+const getAllIssues = async (req: Request, res: Response) => {
+  try {
+    const querys = req.query
+
+    const result = await issueService.getAllIssuesDB(querys);
+    sendResponse(
+      res,
+      {
+        data: result,
+      },
+      200,
+    );
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Something went wrong";
+
+    console.log(error);
+
+    sendResponse(
+      res,
+      {
+        message: errorMessage,
+        error: error,
+      },
+      500,
+    );
+  }
+};
+
 export const issueController = {
   createIssue,
+  getAllIssues,
 };
