@@ -1,6 +1,7 @@
 import { sql } from "../../db";
 import type { IResUser, TCreateIssue, Tquery } from "../../types/types";
 import { decodeToken } from "../../utils/jwt";
+import type { IIssueWithReporter } from "./issue.interfes";
 
 const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
   const decode = decodeToken(authorization) as IResUser;
@@ -65,7 +66,33 @@ const getAllIssuesDB = async (querys: Tquery) => {
 `;
 return issues
 };
+const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
+  const issue = await sql  `
+    SELECT
+  issues.id,
+  issues.title,
+  issues.description,
+  issues.type,
+  issues.status,
+  json_build_object(
+    'id', users.id,
+    'name', users.name,
+    'role', users.role
+  ) AS reporter,
+   issues.created_at,
+   issues.updated_at
+  FROM issues
+  JOIN users ON users.id = issues.reporter_id
+  WHERE issues.id = ${id}
+  `
+  if (issue.length === 0) {
+    throw new Error("Issue not found")
+  }
+
+  return issue[0] as IIssueWithReporter
+}
 export const issueService = {
   createIssueDB,
   getAllIssuesDB,
+  getIssueDB
 };

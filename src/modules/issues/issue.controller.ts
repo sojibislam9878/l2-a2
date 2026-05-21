@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { sendResponse } from "../../utils/sendResponse";
 import { issueService } from "./issue.service";
-import type { IResIssue } from "./issue.interfes";
+import type { IIssueWithReporter, IResIssue } from "./issue.interfes";
 
 const createIssue = async (req: Request, res: Response) => {
   try {
@@ -48,9 +48,49 @@ const createIssue = async (req: Request, res: Response) => {
 
 const getAllIssues = async (req: Request, res: Response) => {
   try {
-    const querys = req.query
+    const querys = req.query;
 
     const result = await issueService.getAllIssuesDB(querys);
+    sendResponse(
+      res,
+      {
+        data: result,
+      },
+      200,
+    );
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Something went wrong";
+
+    console.log(error);
+
+    sendResponse(
+      res,
+      {
+        message: errorMessage,
+        error: error,
+      },
+      500,
+    );
+  }
+};
+
+const getIssue = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== "string") {
+      sendResponse(
+      res,
+      {
+        message:"Invalid ID",
+        error:true,
+      },
+      204,
+    );
+      return;
+    }
+
+    const result:IIssueWithReporter = await issueService.getIssueDB(id);
     sendResponse(
       res,
       {
@@ -78,4 +118,5 @@ const getAllIssues = async (req: Request, res: Response) => {
 export const issueController = {
   createIssue,
   getAllIssues,
+  getIssue,
 };
