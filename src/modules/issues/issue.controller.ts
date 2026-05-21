@@ -115,9 +115,25 @@ const updateIssue = async (req: Request, res: Response) => {
   }
 };
 
+const deleteIssue =async (req:Request, res:Response)=>{
+  try {
+    const {id} = req.params;
+    const token = req.headers.authorization;
+    const result = await issueService.deleteIssueDB(token as string, id as string)
+    console.log(result)
+    sendResponse(res,{message: "Issue deleted successfylly"},200);
+  } catch (error) {
+
+    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+    console.log(error);
+    sendResponse(res,{message: errorMessage,},500,);
+  }
+}
+
 export const issueController = {
   createIssue,
   getAllIssues,
   getIssue,
   updateIssue,
+  deleteIssue
 };

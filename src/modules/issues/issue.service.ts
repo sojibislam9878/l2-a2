@@ -131,9 +131,42 @@ const updateIssueDB = async (authorization: string, id: string, payload: {title:
   return result[0] as IResIssue
 
 }
+
+const deleteIssueDB = async (token: string, id: string)=>{
+if (!token) {
+    throw new Error("Unauthorized")
+  }
+  const decode = decodeToken(token) as IResUser;
+  const userData = await sql`
+    SELECT * FROM users WHERE email = ${decode.email} 
+    `;
+    const issueData = await sql`
+    SELECT * FROM issues WHERE id = ${id} 
+    `;
+
+  const issue = issueData[0];
+  const user = userData[0];
+
+  if (!user) {
+    throw new Error("User not exsist");
+  }
+  if (!issue) {
+    throw new Error("issue not found");
+  }
+  if (user.role !== "maintainer") {
+    throw new Error("You don't have delete access");
+  }
+  const result = await sql `
+      DELETE FROM issues
+      WHERE id = ${id}
+      RETURNING *;
+      `
+  return result
+}
 export const issueService = {
   createIssueDB,
   getAllIssuesDB,
   getIssueDB,
-  updateIssueDB
+  updateIssueDB, 
+  deleteIssueDB
 };
