@@ -20,7 +20,7 @@ var createSchema = async () => {
         name VARCHAR (150) NOT NULL,
         email VARCHAR (200) UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        role VARCHAR DEFAULT 'contributor',
+        role VARCHAR (20) NOT NULL DEFAULT 'contributor',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
      )
@@ -75,7 +75,7 @@ var decodeToken = (payload) => {
 
 // src/modules/auth/auth.service.ts
 var signupDB = async (payload) => {
-  const { name, email, password: reqPass, role } = payload;
+  const { name, email, password: reqPass, role = "contributor" } = payload;
   if (role) {
     if (role !== "contributor" && role !== "maintainer") {
       throw new Error("Role must be 'contributor' or 'maintainer'");
@@ -178,7 +178,7 @@ var createIssueDB = async (payload, authorization) => {
   if (!user) {
     throw new Error("User not exist");
   }
-  const { title, description, type, status } = payload;
+  const { title, description, type, status = "open" } = payload;
   if (!title && !description && !type) {
     throw new Error("Give inputs properly");
   }
@@ -194,8 +194,8 @@ var createIssueDB = async (payload, authorization) => {
     }
   }
   const result = await sql`
-      INSERT INTO issues(title, description, type, reporter_id)
-      VALUES(${title}, ${description}, ${type}, ${user.id})
+      INSERT INTO issues(title, description, type, reporter_id, status)
+      VALUES(${title}, ${description}, ${type}, ${user.id} , ${status})
       RETURNING *
     `;
   if (!result[0]) {

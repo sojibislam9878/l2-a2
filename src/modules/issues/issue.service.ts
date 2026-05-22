@@ -20,7 +20,7 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
     throw new Error("User not exist");
   }
 
-  const { title, description, type, status } = payload;
+  const { title, description, type, status = "open" } = payload;
   if (!title && !description && !type) {
     throw new Error("Give inputs properly")
   }
@@ -33,7 +33,6 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
     throw new Error("Type must be either 'bug' or 'feature_request'")
   }
 
-  const issueStatus:string = status ?? "open";
   if (status) {
     if (status !== "open" && status !== "in_progress" && status !== "resolved") {
       throw new Error("Status must be 'open' , 'in_progress' or 'resolved'")
@@ -42,7 +41,7 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
 
   const result = await sql`
       INSERT INTO issues(title, description, type, reporter_id, status)
-      VALUES(${title}, ${description}, ${type}, ${user.id} , ${issueStatus})
+      VALUES(${title}, ${description}, ${type}, ${user.id} , ${status})
       RETURNING *
     `;
 
