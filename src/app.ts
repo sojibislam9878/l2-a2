@@ -8,7 +8,7 @@ app.use(express.text())
 app.use(express.urlencoded({extended:true}))
 
 app.get('/', (req:Request, res:Response) => {
-  res.send('Hello World!')
+  res.send('server is running!')
 })
 
 app.use("/api/auth", authRouter)

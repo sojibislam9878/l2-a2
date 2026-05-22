@@ -53,8 +53,8 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
 
   return userWithoutPassword;
 };
-const getAllIssuesDB = async (querys: Tquery) => {
-  const { sort, type, status } = querys;
+const getAllIssuesDB = async (query: Tquery) => {
+  const { sort, type, status } = query;
   const conditions = [];
   if (type) conditions.push(sql`type = ${type}`);
   if (status) conditions.push(sql`status = ${status}`);
@@ -81,24 +81,26 @@ const getAllIssuesDB = async (querys: Tquery) => {
 `;
 return issues
 };
+
+
 const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
   const issue = await sql  `
     SELECT
-  issues.id,
-  issues.title,
-  issues.description,
-  issues.type,
-  issues.status,
-  json_build_object(
-    'id', users.id,
-    'name', users.name,
-    'role', users.role
-  ) AS reporter,
-   issues.created_at,
-   issues.updated_at
-  FROM issues
-  JOIN users ON users.id = issues.reporter_id
-  WHERE issues.id = ${id}
+      issues.id,
+      issues.title,
+      issues.description,
+      issues.type,
+      issues.status,
+      json_build_object(
+        'id', users.id,
+        'name', users.name,
+        'role', users.role
+      ) AS reporter,
+      issues.created_at,
+      issues.updated_at
+    FROM issues
+    JOIN users ON users.id = issues.reporter_id
+    WHERE issues.id = ${id}
   `
   if (issue.length === 0) {
     throw new Error("Issue not found")
@@ -107,11 +109,14 @@ const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
   return issue[0] as IIssueWithReporter
 }
 
+
 const updateIssueDB = async (token: string, id: string, payload: {title: string, description:string, type: string})=>{
   const {title, description, type} = payload;
+
   if (!token) {
     throw new Error("Unauthorized")
   }
+
   const decode = decodeToken(token) as IResUser;
   const userData = await sql`
     SELECT * FROM users WHERE email = ${decode.email} 
@@ -124,7 +129,7 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
   const issue = issueData[0];
 
   if (!user) {
-    throw new Error("User not exsist");
+    throw new Error("Unauthorized user");
   }
   if (!issue) {
     throw new Error("issue not fount");
@@ -147,6 +152,7 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
 
 }
 
+
 const deleteIssueDB = async (token: string, id: string)=>{
 if (!token) {
     throw new Error("Unauthorized")
@@ -163,7 +169,7 @@ if (!token) {
   const user = userData[0];
 
   if (!user) {
-    throw new Error("User not exsist");
+    throw new Error("Unauthorized user");
   }
   if (!issue) {
     throw new Error("issue not found");
@@ -178,6 +184,8 @@ if (!token) {
       `
   return result
 }
+
+
 export const issueService = {
   createIssueDB,
   getAllIssuesDB,

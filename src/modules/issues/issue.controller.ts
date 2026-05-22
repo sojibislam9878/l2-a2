@@ -24,30 +24,13 @@ const createIssue = async (req: Request, res: Response) => {
 
 const getAllIssues = async (req: Request, res: Response) => {
   try {
-    const querys = req.query;
+    const query = req.query;
+    const result = await issueService.getAllIssuesDB(query);sendResponse(res,{data: result},200);
 
-    const result = await issueService.getAllIssuesDB(querys);
-    sendResponse(
-      res,
-      {
-        data: result,
-      },
-      200,
-    );
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Something went wrong";
-
-    console.log(error);
-
-    sendResponse(
-      res,
-      {
-        message: errorMessage,
-        error: error,
-      },
-      500,
-    );
+      sendResponse(res,{message: errorMessage,error: error},500);
   }
 };
 
