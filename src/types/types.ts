@@ -17,6 +17,7 @@ export type TCreateIssue = {
   title: string;
   description: string;
   type: string;
+  status?:string
 };
 export type Tquery = {
   sort?: string;

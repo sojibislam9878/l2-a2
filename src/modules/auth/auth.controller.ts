@@ -17,27 +17,11 @@ const signup = async (req: Request, res: Response) => {
 const login = async (req: Request, res: Response) => {
   try {
     const result = await authService.loginDB(req.body);
+    sendResponse(res,{message: "Login successfully",data: result},200);
 
-    sendResponse(
-      res,
-      {
-        message: "User login successfully",
-        data: result,
-      },
-      201,
-    );
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Something went wrong";
-
-    sendResponse(
-      res,
-      {
-        message: errorMessage,
-        error: error,
-      },
-      500,
-    );
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      sendResponse(res,{ message: errorMessage, error:error},500);
   }
 };
 

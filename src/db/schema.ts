@@ -8,7 +8,7 @@ export const createSchema = async ()=>{
         name VARCHAR (150) NOT NULL,
         email VARCHAR (200) UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        role VARCHAR NOT NULL DEFAULT 'contributor',
+        role VARCHAR DEFAULT 'contributor',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
      )

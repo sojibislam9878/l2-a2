@@ -8,22 +8,37 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
 
   const userData = await sql`
     SELECT * FROM users WHERE email = ${decode.email} 
-    `;
+  `;
 
   if (!userData[0]) {
-    throw new Error("User not exsist");
+    throw new Error("User not exist");
   }
 
   const user = userData[0];
 
   if (!user) {
-    throw new Error("User not exsist");
+    throw new Error("User not exist");
   }
 
-  const { title, description, type } = payload;
-  if (description.length < 9) {
+  const { title, description, type, status } = payload;
+  if (!title && !description && !type) {
+    throw new Error("Give inputs properly")
+  }
+
+  if (description.length < 19) {
     throw new Error("Description is too short");
   }
+
+  if (type !== "bug" && type !=="feature_request") {
+    throw new Error("Type must be either 'bug' or 'feature_request'")
+  }
+
+  if (status) {
+    if (status !== "open" && status !== "in_progress" && status !== "resolved") {
+      throw new Error("Status must be 'open' , 'in_progress' or 'resolved'")
+    }
+  }
+
   const result = await sql`
       INSERT INTO issues(title, description, type, reporter_id)
       VALUES(${title}, ${description}, ${type}, ${user.id})
