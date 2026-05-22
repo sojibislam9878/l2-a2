@@ -1,4 +1,4 @@
-import express, { type Application, type Request, type Response } from "express"
+import express, { type Application, type NextFunction, type Request, type Response } from "express"
 import { authRouter } from "./modules/auth/auth.route"
 import { issueRouter } from "./modules/issues/issue.route"
 const app:Application = express()
@@ -13,5 +13,13 @@ app.get('/', (req:Request, res:Response) => {
 
 app.use("/api/auth", authRouter)
 app.use("/api/issues", issueRouter)
+
+app.use((err:Error, req:Request, res:Response, next:NextFunction)=>{
+  console.log(err.stack);
+   res.status(500).json({
+    status:false,
+    message:err.message || "Internal Server Error"
+   })
+})
 
 export default app
