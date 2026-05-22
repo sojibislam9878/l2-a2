@@ -6,6 +6,11 @@ import type { IIssueWithReporter, IResIssue } from "./issue.interfes";
 const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
   const decode = decodeToken(authorization) as IResUser;
 
+  const { title, description, type, status = "open" } = payload;
+  if (!title || !description || !type) {
+    throw new Error("Give inputs properly")
+  }
+
   const userData = await sql`
     SELECT * FROM users WHERE email = ${decode.email} 
   `;
@@ -20,13 +25,8 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
     throw new Error("User not exist");
   }
 
-  const { title, description, type, status = "open" } = payload;
-  if (!title && !description && !type) {
-    throw new Error("Give inputs properly")
-  }
-
   if (description.length < 19) {
-    throw new Error("Description is too short");
+    throw new Error("Description is too short (minimum 20 characters)");
   }
 
   if (type !== "bug" && type !=="feature_request") {
@@ -128,12 +128,17 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
   const user = userData[0];
   const issue = issueData[0];
 
+  if (description.length < 19) {
+    throw new Error("Description is too short (minimum 20 characters)");
+  }
+
   if (!user) {
     throw new Error("Unauthorized user");
   }
   if (!issue) {
     throw new Error("issue not fount");
   }
+
   if (user.role !== "maintainer" && (issue.reporter_id !== user.id || issue.status !== "open") ) {
     throw new Error("You don't have update access");
   }

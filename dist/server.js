@@ -30,7 +30,7 @@ var createSchema = async () => {
     CREATE TABLE IF NOT EXISTS issues(
         id SERIAL PRIMARY KEY,
         title VARCHAR (150) NOT NULL,
-        description TEXT NOT NULL,
+        description TEXT NOT NULL CHECK (char_length(description) >= 20),
         type VARCHAR (20) NOT NULL,
         status VARCHAR (20) NOT NULL DEFAULT 'open',
         reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -168,6 +168,10 @@ import { Router as Router2 } from "express";
 // src/modules/issues/issue.service.ts
 var createIssueDB = async (payload, authorization) => {
   const decode = decodeToken(authorization);
+  const { title, description, type, status = "open" } = payload;
+  if (!title || !description || !type) {
+    throw new Error("Give inputs properly");
+  }
   const userData = await sql`
     SELECT * FROM users WHERE email = ${decode.email} 
   `;
@@ -178,12 +182,8 @@ var createIssueDB = async (payload, authorization) => {
   if (!user) {
     throw new Error("User not exist");
   }
-  const { title, description, type, status = "open" } = payload;
-  if (!title && !description && !type) {
-    throw new Error("Give inputs properly");
-  }
   if (description.length < 19) {
-    throw new Error("Description is too short");
+    throw new Error("Description is too short (minimum 20 characters)");
   }
   if (type !== "bug" && type !== "feature_request") {
     throw new Error("Type must be either 'bug' or 'feature_request'");
@@ -269,6 +269,9 @@ var updateIssueDB = async (token, id, payload) => {
     `;
   const user = userData[0];
   const issue = issueData[0];
+  if (description.length < 19) {
+    throw new Error("Description is too short (minimum 20 characters)");
+  }
   if (!user) {
     throw new Error("Unauthorized user");
   }
