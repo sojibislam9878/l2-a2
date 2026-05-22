@@ -3,9 +3,7 @@ import type { IResUser, IUser } from "../../types/types";
 import bcrypt from "bcrypt";
 import { signTokes } from "../../utils/jwt";
 const signupDB = async (payload: IUser) => {
-  const { name, email, password: reqPass, role } = payload;
-
-  const userRole:string = role ?? "contributor";
+  const { name, email, password: reqPass, role = "contributor" } = payload;
   if (role) {
     if (role !== "contributor" && role !== "maintainer") {
       throw new Error("Role must be 'contributor' or 'maintainer'");
@@ -18,7 +16,7 @@ const signupDB = async (payload: IUser) => {
   const hashPass = await bcrypt.hash(reqPass, 12);
   const result = await sql`
       INSERT INTO users(name, email, password, role)
-      VALUES(${name}, ${email}, ${hashPass}, ${userRole})
+      VALUES(${name}, ${email}, ${hashPass}, ${role})
       RETURNING *
     `;
 
