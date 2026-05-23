@@ -21,7 +21,7 @@ export const createSchema = async ()=>{
         description TEXT NOT NULL CHECK (char_length(description) >= 20),
         type VARCHAR (20) NOT NULL,
         status VARCHAR (20) NOT NULL DEFAULT 'open',
-        reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reporter_id INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
      )

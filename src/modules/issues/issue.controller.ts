@@ -1,61 +1,51 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { sendResponse } from "../../utils/sendResponse";
 import { issueService } from "./issue.service";
 import type { IIssueWithReporter, IResIssue } from "./issue.interfes";
+import { AppError } from "../../utils/AppError";
 
-const createIssue = async (req: Request, res: Response) => {
+const createIssue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authorization = req.headers.authorization;
 
     if (!authorization) {
-      sendResponse(res,{message: "Unauthorized",error: {}},401);
-      return;
+      throw new AppError(401, "Unauthorized");
     }
 
     const issue = await issueService.createIssueDB(req.body, authorization);
     sendResponse(res,{message: "Issue created successfully",data: issue},201);
 
   } catch (error) {
-
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res,{message: errorMessage,error: error,},500);
+    next(error);
   }
 };
 
-const getAllIssues = async (req: Request, res: Response) => {
+const getAllIssues = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const query = req.query;
-    const result = await issueService.getAllIssuesDB(query);sendResponse(res,{data: result},200);
+    const result = await issueService.getAllIssuesDB(query);sendResponse(res,{message: "Issues retrived successfully",data: result},200);
 
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Something went wrong";
-      sendResponse(res,{message: errorMessage,error: error},500);
+    next(error);
   }
 };
 
-const getIssue = async (req: Request, res: Response) => {
+const getIssue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     if (typeof id !== "string") {
-      sendResponse(res,{message:"Invalid ID",error:true,},204,);
-      return;
+      throw new AppError(400, "Invalid ID");
     }
 
     const result:IIssueWithReporter = await issueService.getIssueDB(id);
-    sendResponse( res,{data: result},200);
+    sendResponse( res,{message: "Issues retrived successfully", data: result},200);
 
   } catch (error) {
-
-    const errorMessage =
-    error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-
-    sendResponse(res,{message: errorMessage,error: error,},500,);
+    next(error);
   }
 };
 
-const updateIssue = async (req: Request, res: Response) => {
+const updateIssue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.headers.authorization;
     const {id} = req.params;
@@ -65,27 +55,19 @@ const updateIssue = async (req: Request, res: Response) => {
     sendResponse( res,{message: "Issue updated successfully",data: result},200);
 
   } catch (error) {
-
-    const errorMessage =
-    error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-
-    sendResponse(res,{message: errorMessage,error: error,},500,);
+    next(error);
   }
 };
 
-const deleteIssue =async (req:Request, res:Response)=>{
+const deleteIssue =async (req:Request, res:Response, next: NextFunction)=>{
   try {
     const {id} = req.params;
     const token = req.headers.authorization;
     const result = await issueService.deleteIssueDB(token as string, id as string)
     console.log(result)
-    sendResponse(res,{message: "Issue deleted successfylly"},200);
+    sendResponse(res,{message: "Issue deleted successfully"},200);
   } catch (error) {
-
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-    sendResponse(res,{message: errorMessage,},500,);
+    next(error);
   }
 }
 

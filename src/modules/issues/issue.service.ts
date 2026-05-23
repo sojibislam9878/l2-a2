@@ -1,6 +1,7 @@
 import { sql } from "../../db";
 import type { IResUser, TCreateIssue, Tquery } from "../../types/types";
 import { decodeToken } from "../../utils/jwt";
+import { AppError } from "../../utils/AppError";
 import type { IIssueWithReporter, IResIssue } from "./issue.interfes";
 
 const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
@@ -8,34 +9,37 @@ const createIssueDB = async (payload: TCreateIssue, authorization: string) => {
 
   const { title, description, type, status = "open" } = payload;
   if (!title || !description || !type) {
-    throw new Error("Give inputs properly")
+    throw new AppError(400, "Title, description and type are required")
   }
 
   const userData = await sql`
-    SELECT * FROM users WHERE email = ${decode.email} 
+    SELECT * FROM users WHERE id = ${decode.id} 
   `;
 
   if (!userData[0]) {
-    throw new Error("User not exist");
+    throw new AppError(401, "Unauthorized user");
   }
 
   const user = userData[0];
 
   if (!user) {
-    throw new Error("User not exist");
+    throw new AppError(401, "Unauthorized user");
   }
 
-  if (description.length < 19) {
-    throw new Error("Description is too short (minimum 20 characters)");
+  if (title.length > 150) {
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
+  }
+  if (description.length < 20) {
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
   }
 
   if (type !== "bug" && type !=="feature_request") {
-    throw new Error("Type must be either 'bug' or 'feature_request'")
+    throw new AppError(400, "Type must be either 'bug' or 'feature_request'")
   }
 
   if (status) {
     if (status !== "open" && status !== "in_progress" && status !== "resolved") {
-      throw new Error("Status must be 'open' , 'in_progress' or 'resolved'")
+      throw new AppError(400, "Status must be 'open' , 'in_progress' or 'resolved'")
     }
   }
 
@@ -59,7 +63,7 @@ const getAllIssuesDB = async (query: Tquery) => {
   if (type) conditions.push(sql`type = ${type}`);
   if (status) conditions.push(sql`status = ${status}`);
 
-  const orderBy = sort === "old" ? sql`created_at ASC` : sql`created_at DESC`;
+  const orderBy = sort === "oldest" ? sql`created_at ASC` : sql`created_at DESC`;
   const issues = await sql`
   SELECT
   issues.id,
@@ -103,7 +107,7 @@ const getIssueDB = async (id : string): Promise<IIssueWithReporter> =>{
     WHERE issues.id = ${id}
   `
   if (issue.length === 0) {
-    throw new Error("Issue not found")
+    throw new AppError(404, "Issue not found")
   }
 
   return issue[0] as IIssueWithReporter
@@ -114,7 +118,7 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
   const {title, description, type} = payload;
 
   if (!token) {
-    throw new Error("Unauthorized")
+    throw new AppError(401, "Unauthorized")
   }
 
   const decode = decodeToken(token) as IResUser;
@@ -129,18 +133,23 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
   const issue = issueData[0];
 
   if (description.length < 19) {
-    throw new Error("Description is too short (minimum 20 characters)");
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
   }
 
   if (!user) {
-    throw new Error("Unauthorized user");
+    throw new AppError(401, "Unauthorized user");
   }
   if (!issue) {
-    throw new Error("issue not fount");
+    throw new AppError(404, "Issue not found");
   }
 
-  if (user.role !== "maintainer" && (issue.reporter_id !== user.id || issue.status !== "open") ) {
-    throw new Error("You don't have update access");
+  if (user.role !== "maintainer") {
+    if (issue.reporter_id !== user.id) {
+      throw new AppError(403, "You don't have update access");
+    }
+    if (issue.status !== "open") {
+      throw new AppError(409, "Cannot edit an issue that is not open");
+    }
   }
   
   const result= await sql`
@@ -160,7 +169,7 @@ const updateIssueDB = async (token: string, id: string, payload: {title: string,
 
 const deleteIssueDB = async (token: string, id: string)=>{
 if (!token) {
-    throw new Error("Unauthorized")
+    throw new AppError(401, "Unauthorized")
   }
   const decode = decodeToken(token) as IResUser;
   const userData = await sql`
@@ -174,13 +183,13 @@ if (!token) {
   const user = userData[0];
 
   if (!user) {
-    throw new Error("Unauthorized user");
+    throw new AppError(401, "Unauthorized user");
   }
   if (!issue) {
-    throw new Error("issue not found");
+    throw new AppError(404, "Issue not found");
   }
   if (user.role !== "maintainer") {
-    throw new Error("You don't have delete access");
+    throw new AppError(403, "You don't have delete access");
   }
   const result = await sql `
       DELETE FROM issues

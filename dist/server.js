@@ -33,7 +33,7 @@ var createSchema = async () => {
         description TEXT NOT NULL CHECK (char_length(description) >= 20),
         type VARCHAR (20) NOT NULL,
         status VARCHAR (20) NOT NULL DEFAULT 'open',
-        reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reporter_id INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
      )
@@ -73,31 +73,48 @@ var decodeToken = (payload) => {
   return decoded;
 };
 
+// src/utils/AppError.ts
+var AppError = class extends Error {
+  statusCode;
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+    this.name = "AppError";
+  }
+};
+
 // src/modules/auth/auth.service.ts
 var signupDB = async (payload) => {
   const { name, email, password: reqPass, role = "contributor" } = payload;
   if (role) {
     if (role !== "contributor" && role !== "maintainer") {
-      throw new Error("Role must be 'contributor' or 'maintainer'");
+      throw new AppError(400, "Role must be 'contributor' or 'maintainer'");
     }
   }
   if (!name || !email || !reqPass) {
-    throw new Error("Fill all field properly");
+    throw new AppError(400, "Name, email and password are required");
   }
   const hashPass = await bcrypt.hash(reqPass, 12);
-  const result = await sql`
-      INSERT INTO users(name, email, password, role)
-      VALUES(${name}, ${email}, ${hashPass}, ${role})
-      RETURNING *
-    `;
-  const user = result[0];
-  const { password, ...userWithoutPass } = user;
-  return userWithoutPass;
+  try {
+    const result = await sql`
+        INSERT INTO users(name, email, password, role)
+        VALUES(${name}, ${email}, ${hashPass}, ${role})
+        RETURNING *
+      `;
+    const user = result[0];
+    const { password, ...userWithoutPass } = user;
+    return userWithoutPass;
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "23505") {
+      throw new AppError(400, "Email already exists");
+    }
+    throw err;
+  }
 };
 var loginDB = async (payload) => {
   const { email: reqEmail, password } = payload;
   if (!reqEmail || !password) {
-    throw new Error("Inter Email and Password");
+    throw new AppError(400, "Email and password are required");
   }
   const userData = await sql`
     SELECT * FROM users
@@ -105,15 +122,18 @@ var loginDB = async (payload) => {
   `;
   const user = userData[0];
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError(404, "User not found");
   }
   const hashPass = user.password;
   const isValidPassword = await bcrypt.compare(password, hashPass);
   if (!isValidPassword) {
-    throw new Error("Wrong password");
+    throw new AppError(401, "Invalid credentials");
+  }
+  if (!user.id) {
+    throw new AppError(500, "user id missing");
   }
   const { password: userPass, ...userWithoutPassword } = user;
-  const { token } = signTokes(user);
+  const { token } = signTokes({ id: user.id, name: user.name, role: user.role });
   const result = { token, user: userWithoutPassword };
   return result;
 };
@@ -133,22 +153,20 @@ var sendResponse = (res, { message, data, error }, status = 200) => {
 };
 
 // src/modules/auth/auth.controller.ts
-var signup = async (req, res) => {
+var signup = async (req, res, next) => {
   try {
     const result = await authService.signupDB(req.body);
     sendResponse(res, { message: "User registered successfully", data: result }, 201);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
-var login = async (req, res) => {
+var login = async (req, res, next) => {
   try {
     const result = await authService.loginDB(req.body);
     sendResponse(res, { message: "Login successfully", data: result }, 200);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
 var authController = {
@@ -170,27 +188,30 @@ var createIssueDB = async (payload, authorization) => {
   const decode = decodeToken(authorization);
   const { title, description, type, status = "open" } = payload;
   if (!title || !description || !type) {
-    throw new Error("Give inputs properly");
+    throw new AppError(400, "Title, description and type are required");
   }
   const userData = await sql`
-    SELECT * FROM users WHERE email = ${decode.email} 
+    SELECT * FROM users WHERE id = ${decode.id} 
   `;
   if (!userData[0]) {
-    throw new Error("User not exist");
+    throw new AppError(401, "Unauthorized user");
   }
   const user = userData[0];
   if (!user) {
-    throw new Error("User not exist");
+    throw new AppError(401, "Unauthorized user");
   }
-  if (description.length < 19) {
-    throw new Error("Description is too short (minimum 20 characters)");
+  if (title.length > 150) {
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
+  }
+  if (description.length < 20) {
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
   }
   if (type !== "bug" && type !== "feature_request") {
-    throw new Error("Type must be either 'bug' or 'feature_request'");
+    throw new AppError(400, "Type must be either 'bug' or 'feature_request'");
   }
   if (status) {
     if (status !== "open" && status !== "in_progress" && status !== "resolved") {
-      throw new Error("Status must be 'open' , 'in_progress' or 'resolved'");
+      throw new AppError(400, "Status must be 'open' , 'in_progress' or 'resolved'");
     }
   }
   const result = await sql`
@@ -209,7 +230,7 @@ var getAllIssuesDB = async (query) => {
   const conditions = [];
   if (type) conditions.push(sql`type = ${type}`);
   if (status) conditions.push(sql`status = ${status}`);
-  const orderBy = sort === "old" ? sql`created_at ASC` : sql`created_at DESC`;
+  const orderBy = sort === "oldest" ? sql`created_at ASC` : sql`created_at DESC`;
   const issues = await sql`
   SELECT
   issues.id,
@@ -251,14 +272,14 @@ var getIssueDB = async (id) => {
     WHERE issues.id = ${id}
   `;
   if (issue.length === 0) {
-    throw new Error("Issue not found");
+    throw new AppError(404, "Issue not found");
   }
   return issue[0];
 };
 var updateIssueDB = async (token, id, payload) => {
   const { title, description, type } = payload;
   if (!token) {
-    throw new Error("Unauthorized");
+    throw new AppError(401, "Unauthorized");
   }
   const decode = decodeToken(token);
   const userData = await sql`
@@ -270,16 +291,21 @@ var updateIssueDB = async (token, id, payload) => {
   const user = userData[0];
   const issue = issueData[0];
   if (description.length < 19) {
-    throw new Error("Description is too short (minimum 20 characters)");
+    throw new AppError(400, "Description is too short (minimum 20 characters)");
   }
   if (!user) {
-    throw new Error("Unauthorized user");
+    throw new AppError(401, "Unauthorized user");
   }
   if (!issue) {
-    throw new Error("issue not fount");
+    throw new AppError(404, "Issue not found");
   }
-  if (user.role !== "maintainer" && (issue.reporter_id !== user.id || issue.status !== "open")) {
-    throw new Error("You don't have update access");
+  if (user.role !== "maintainer") {
+    if (issue.reporter_id !== user.id) {
+      throw new AppError(403, "You don't have update access");
+    }
+    if (issue.status !== "open") {
+      throw new AppError(409, "Cannot edit an issue that is not open");
+    }
   }
   const result = await sql`
   UPDATE issues
@@ -295,7 +321,7 @@ var updateIssueDB = async (token, id, payload) => {
 };
 var deleteIssueDB = async (token, id) => {
   if (!token) {
-    throw new Error("Unauthorized");
+    throw new AppError(401, "Unauthorized");
   }
   const decode = decodeToken(token);
   const userData = await sql`
@@ -307,13 +333,13 @@ var deleteIssueDB = async (token, id) => {
   const issue = issueData[0];
   const user = userData[0];
   if (!user) {
-    throw new Error("Unauthorized user");
+    throw new AppError(401, "Unauthorized user");
   }
   if (!issue) {
-    throw new Error("issue not found");
+    throw new AppError(404, "Issue not found");
   }
   if (user.role !== "maintainer") {
-    throw new Error("You don't have delete access");
+    throw new AppError(403, "You don't have delete access");
   }
   const result = await sql`
       DELETE FROM issues
@@ -331,46 +357,40 @@ var issueService = {
 };
 
 // src/modules/issues/issue.controller.ts
-var createIssue = async (req, res) => {
+var createIssue = async (req, res, next) => {
   try {
     const authorization = req.headers.authorization;
     if (!authorization) {
-      sendResponse(res, { message: "Unauthorized", error: {} }, 401);
-      return;
+      throw new AppError(401, "Unauthorized");
     }
     const issue = await issueService.createIssueDB(req.body, authorization);
     sendResponse(res, { message: "Issue created successfully", data: issue }, 201);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
-var getAllIssues = async (req, res) => {
+var getAllIssues = async (req, res, next) => {
   try {
     const query = req.query;
     const result = await issueService.getAllIssuesDB(query);
-    sendResponse(res, { data: result }, 200);
+    sendResponse(res, { message: "Issues retrived successfully", data: result }, 200);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
-var getIssue = async (req, res) => {
+var getIssue = async (req, res, next) => {
   try {
     const { id } = req.params;
     if (typeof id !== "string") {
-      sendResponse(res, { message: "Invalid ID", error: true }, 204);
-      return;
+      throw new AppError(400, "Invalid ID");
     }
     const result = await issueService.getIssueDB(id);
-    sendResponse(res, { data: result }, 200);
+    sendResponse(res, { message: "Issues retrived successfully", data: result }, 200);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
-var updateIssue = async (req, res) => {
+var updateIssue = async (req, res, next) => {
   try {
     const token = req.headers.authorization;
     const { id } = req.params;
@@ -378,22 +398,18 @@ var updateIssue = async (req, res) => {
     const result = await issueService.updateIssueDB(token, id, payload);
     sendResponse(res, { message: "Issue updated successfully", data: result }, 200);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-    sendResponse(res, { message: errorMessage, error }, 500);
+    next(error);
   }
 };
-var deleteIssue = async (req, res) => {
+var deleteIssue = async (req, res, next) => {
   try {
     const { id } = req.params;
     const token = req.headers.authorization;
     const result = await issueService.deleteIssueDB(token, id);
     console.log(result);
-    sendResponse(res, { message: "Issue deleted successfylly" }, 200);
+    sendResponse(res, { message: "Issue deleted successfully" }, 200);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-    console.log(error);
-    sendResponse(res, { message: errorMessage }, 500);
+    next(error);
   }
 };
 var issueController = {
@@ -425,8 +441,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/issues", issueRouter);
 app.use((err, req, res, next) => {
   console.log(err.stack);
-  res.status(500).json({
-    status: false,
+  const statusCode = err instanceof AppError ? err.statusCode : 500;
+  res.status(statusCode).json({
+    success: false,
     message: err.message || "Internal Server Error"
   });
 });

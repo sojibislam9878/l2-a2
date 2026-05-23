@@ -1,27 +1,25 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { authService } from "./auth.service";
 import type { IUser } from "../../types/types";
 import { sendResponse } from "../../utils/sendResponse";
 
-const signup = async (req: Request, res: Response) => {
+const signup = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await authService.signupDB(req.body as IUser);
     sendResponse(res,{message: "User registered successfully",data: result},201);
 
   } catch (error) {
-    const errorMessage =error instanceof Error ? error.message : "Something went wrong";
-    sendResponse(res,{message: errorMessage,error: error,},500,);
+    next(error);
   }
 };
 
-const login = async (req: Request, res: Response) => {
+const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await authService.loginDB(req.body);
     sendResponse(res,{message: "Login successfully",data: result},200);
 
   } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
-      sendResponse(res,{ message: errorMessage, error:error},500);
+    next(error);
   }
 };
 

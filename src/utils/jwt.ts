@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken"
 import envConfig from "../config/envConfig"
-export const signTokes = (payloads: any)=>{
+export const signTokes = (payloads: {id:number ,name:string, role: string })=>{
  const token = jwt.sign(payloads, envConfig.access_token as string, {expiresIn:"7d"}  )
 
  return {token}
