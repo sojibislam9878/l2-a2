@@ -201,7 +201,7 @@ var createIssueDB = async (payload, authorization) => {
     throw new AppError(401, "Unauthorized user");
   }
   if (title.length > 150) {
-    throw new AppError(400, "Description is too short (minimum 20 characters)");
+    throw new AppError(400, "Title is too long");
   }
   if (description.length < 20) {
     throw new AppError(400, "Description is too short (minimum 20 characters)");
